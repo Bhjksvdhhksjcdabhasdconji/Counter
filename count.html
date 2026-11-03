@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Live Join Counter</title>
+  <style>
+    :root {
+      --bg: #0a0f1d;
+      --card-bg: rgba(255, 255, 255, 0.05);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --accent-blue: #3b82f6;
+      --accent-green: #10b981;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 20px;
+      font-size: 0.85rem;
+      color: var(--accent-green);
+      margin-bottom: 16px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--accent-green);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    .dot.pulse {
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.2); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .counter-val {
+      font-size: 3.5rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      color: #ffffff;
+      margin: 10px 0;
+      background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .counter-label {
+      font-size: 0.9rem;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .stat-val {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .stat-desc {
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      margin-top: 4px;
+    }
+
+    .join-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--accent-blue), #2563eb);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+    }
+
+    .join-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+    }
+
+    .join-btn:disabled {
+      background: #334155;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+      opacity: 0.6;
+    }
+
+    .footer {
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      text-align: center;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Main Counter Card -->
+    <div class="card">
+      <div class="status-badge">
+        <span class="dot pulse"></span> Global Network Connected
+      </div>
+      <div class="counter-label">Total Unique Joins</div>
+      <div class="counter-val" id="totalJoins">--</div>
+      
+      <button class="join-btn" id="joinBtn" onclick="registerJoin()">Count Me In!</button>
+    </div>
+
+    <!-- Live Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-val" id="onlineNow">--</div>
+        <div class="stat-desc">Online Right Now</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="yourStatus">Guest</div>
+        <div class="stat-desc">Your Status</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Synced live across all worldwide visitors • Powered by Firebase & GitHub Pages
+    </div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script>
+    // 1. REPLACE THIS WITH YOUR FIREBASE CONFIG
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Generate or get unique device ID (prevents double joins from same user)
+    let visitorId = localStorage.getItem('global_visitor_id');
+    if (!visitorId) {
+      visitorId = 'user_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+      localStorage.setItem('global_visitor_id', visitorId);
+    }
+
+    // References
+    const totalJoinsRef = db.ref('stats/totalJoins');
+    const membersRef = db.ref('members/' + visitorId);
+    const presenceRef = db.ref('online/' + visitorId);
+    const connectedRef = db.ref('.info/connected');
+    const onlineCountRef = db.ref('online');
+
+    // Check if user already joined previously
+    membersRef.once('value', snapshot => {
+      if (snapshot.exists()) {
+        markAsJoined();
+      }
+    });
+
+    // Handle Realtime Online Presence
+    connectedRef.on('value', (snap) => {
+      if (snap.val() === true) {
+        // Remove from online list when window closes
+        presenceRef.onDisconnect().remove();
+        // Set active presence
+        presenceRef.set(true);
+      }
+    });
+
+    // Listen to Total Joins in Realtime
+    totalJoinsRef.on('value', (snapshot) => {
+      const count = snapshot.val() || 0;
+      document.getElementById('totalJoins').innerText = count.toLocaleString();
+    });
+
+    // Listen to Live Online Count in Realtime
+    onlineCountRef.on('value', (snapshot) => {
+      const count = snapshot.numChildren() || 0;
+      document.getElementById('onlineNow').innerText = count.toLocaleString();
+    });
+
+    // Action: Register Join
+    function registerJoin() {
+      const btn = document.getElementById('joinBtn');
+      btn.disabled = true;
+      btn.innerText = 'Registering...';
+
+      membersRef.once('value', snapshot => {
+        if (!snapshot.exists()) {
+          // Record member record
+          membersRef.set({
+            joinedAt: firebase.database.ServerValue.TIMESTAMP
+          }).then(() => {
+            // Atomically increment total count
+            totalJoinsRef.transaction((current) => {
+              return (current || 0) + 1;
+            });
+            markAsJoined();
+          }).catch(err => {
+            console.error(err);
+            btn.disabled = false;
+            btn.innerText = 'Count Me In!';
+          });
+        } else {
+          markAsJoined();
+        }
+      });
+    }
+
+    function markAsJoined() {
+      const btn = document.getElementById('joinBtn');
+      btn.disabled = true;
+      btn.innerText = '✓ You Are Counted!';
+      document.getElementById('yourStatus').innerText = 'Joined';
+      document.getElementById('yourStatus').style.color = '#10b981';
+    }
+  </script>
+</body>
+</html>
